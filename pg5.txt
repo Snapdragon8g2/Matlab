@@ -1,0 +1,60 @@
+data = readtable('text_classification_data.csv','TextType','string');
+docs = data.Text;
+labels = categorical(data.Label);
+
+cv = cvpartition(labels,'HoldOut',0.2);
+trainDocs = docs(training(cv));
+valDocs = docs(test(cv));
+trainLabels = labels(training(cv));
+valLabels = labels(test(cv));
+
+trainTok = tokenizedDocument(trainDocs);
+valTok = tokenizedDocument(valDocs);
+enc = wordEncoding(trainTok);
+XTrain = doc2sequence(enc,trainTok);
+XVal = doc2sequence(enc,valTok);
+
+layers = [
+    sequenceInputLayer(1)
+    wordEmbeddingLayer(50,enc.NumWords)
+    lstmLayer(100,'OutputMode','last')
+    fullyConnectedLayer(numel(categories(labels)))
+    softmaxLayer
+    classificationLayer
+];
+
+opts = trainingOptions('adam', ...
+    'MaxEpochs',30, ...
+    'MiniBatchSize',4, ...
+    'Shuffle','every-epoch', ...
+    'ValidationData',{XVal,valLabels}, ...
+    'Verbose',false, ...
+    'Plots','training-progress');
+
+% Step 6: Train Model
+net = trainNetwork(XTrain,trainLabels,layers,opts);
+
+% Step 7: Evaluate Accuracy
+YPredTrain = classify(net,XTrain);
+YPredVal = classify(net,XVal);
+fprintf('Training Accuracy: %.2f%%\n',mean(YPredTrain==trainLabels)*100);
+fprintf('Validation Accuracy: %.2f%%\n',mean(YPredVal==valLabels)*100);
+
+% Step 8: Test on New Samples
+tests = [
+    "He scored an amazing goal in the final match"
+    "The new AI processor improves smartphone performance"
+    "They won the football league this year"
+    "Innovative apps are changing the mobile industry"
+    "The athlete broke the world record in running"
+];
+trueLabs = categorical(["sports","technology","sports","technology","sports"]);
+XTest = doc2sequence(enc,tokenizedDocument(tests));
+YPredTest = classify(net,XTest);
+
+% Step 9: Show Results
+disp('--- Test Results ---')
+for i = 1:numel(tests)
+    fprintf('"%s"\nActual: %s | Predicted: %s\n\n', ...
+        tests(i),string(trueLabs(i)),string(YPredTest(i)));
+end
