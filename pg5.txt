@@ -1,18 +1,24 @@
+
 data = readtable('text_classification_data.csv','TextType','string');
 docs = data.Text;
 labels = categorical(data.Label);
 
 cv = cvpartition(labels,'HoldOut',0.2);
-trainDocs = docs(training(cv));
-valDocs = docs(test(cv));
-trainLabels = labels(training(cv));
-valLabels = labels(test(cv));
+idxTrain = training(cv);
+idxVal = test(cv);
+
+trainDocs = docs(idxTrain);
+valDocs = docs(idxVal);
+trainLabels = labels(idxTrain);
+valLabels = labels(idxVal);
+
 
 trainTok = tokenizedDocument(trainDocs);
 valTok = tokenizedDocument(valDocs);
 enc = wordEncoding(trainTok);
 XTrain = doc2sequence(enc,trainTok);
 XVal = doc2sequence(enc,valTok);
+
 
 layers = [
     sequenceInputLayer(1)
@@ -23,6 +29,7 @@ layers = [
     classificationLayer
 ];
 
+% Step 5: Training Options (shows progress)
 opts = trainingOptions('adam', ...
     'MaxEpochs',30, ...
     'MiniBatchSize',4, ...
