@@ -1,0 +1,51 @@
+
+path = fullfile(matlabroot,'toolbox','nnet','nndemos','nndatasets','DigitDataset');
+imds = imageDatastore(path,'IncludeSubfolders',true,'LabelSource','foldernames');
+disp("Total images: " + numel(imds.Files));
+disp(countEachLabel(imds));
+
+figure;
+perm = randperm(numel(imds.Files),20);
+for i = 1:20
+    subplot(4,5,i);
+    imshow(readimage(imds,perm(i)));
+    title(string(imds.Labels(perm(i))));
+end
+sgtitle('Sample Digits');
+
+minCount = min(countEachLabel(imds).Count);
+imds = splitEachLabel(imds,minCount,'randomize');
+imds.ReadFcn = @(f) imresize(imread(f),[28 28]);
+[trainFull,test] = splitEachLabel(imds,0.7,'randomized');
+[train,val] = splitEachLabel(trainFull,0.85,'randomized');
+
+layers = [
+    imageInputLayer([28 28 1])
+    fullyConnectedLayer(256)
+    reluLayer
+    fullyConnectedLayer(128)
+    reluLayer
+    fullyConnectedLayer(64)
+    reluLayer
+    fullyConnectedLayer(10)
+    softmaxLayer
+    classificationLayer
+];
+
+opts = trainingOptions('adam', ...
+    'MaxEpochs',5, ...
+    'MiniBatchSize',64, ...
+    'Shuffle','every-epoch', ...
+    'ValidationData',val, ...
+    'Verbose',false, ...
+    'Plots','training-progress');
+
+net = trainNetwork(train,layers,opts);
+
+YPred = classify(net,test);
+acc = mean(YPred == test.Labels);
+fprintf('\nTest Accuracy: %.2f%%\n',acc*100);
+
+figure;
+confusionchart(test.Labels,YPred);
+title('Confusion Matrix - Test Data');
